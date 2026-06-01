@@ -1,0 +1,123 @@
+diff --git a/cpp/include/rmm/detail/runtime_capabilities.hpp b/cpp/include/rmm/detail/runtime_capabilities.hpp
+index c4f0b79..efa33c3 100644
+--- a/cpp/include/rmm/detail/runtime_capabilities.hpp
++++ b/cpp/include/rmm/detail/runtime_capabilities.hpp
+@@ -16,9 +16,12 @@ namespace RMM_NAMESPACE {
+ namespace detail {
+ 
+ /**
+- * @brief Minimum CUDA driver version for hardware decompression support
++ * @brief Minimum CUDA version for hardware decompression support.
++ *
++ * The driver version used at runtime must be at least this value. Moreover, the
++ * compile-time cudart version must also be at least this value.
+  */
+-#define RMM_MIN_HWDECOMPRESS_CUDA_DRIVER_VERSION 12080
++#define RMM_MIN_HWDECOMPRESS_CUDA_VERSION 12080
+ 
+ /**
+  * @brief Minimum CUDA driver version for stream-ordered managed memory allocator support
+@@ -78,8 +81,9 @@ struct export_handle_type {
+  * @brief Check whether `cudaMemPoolCreateUsageHwDecompress` is a supported
+  * pool property on the present CUDA driver version.
+  *
+- * Requires RMM to be built with a supported CUDA version 12.8+, otherwise
+- * this always returns false.
++ * @note Even if this function returns `true`, hardware decompression will not be enabled
++ * on async memory pools if the version of cudart that RMM was compiled with is too low
++ * (see `RMM_MIN_HWDECOMPRESS_CUDA_VERSION`).
+  *
+  * @return true if supported
+  * @return false if unsupported
+@@ -93,17 +97,13 @@ struct export_handle_type {
+ struct hwdecompress {
+   static bool is_supported()
+   {
+-#if defined(CUDA_VERSION) && CUDA_VERSION >= RMM_MIN_HWDECOMPRESS_CUDA_DRIVER_VERSION
+     // Check if hardware decompression is supported (requires CUDA 12.8 driver or higher)
+     static bool is_supported = []() {
+       int driver_version{};
+       RMM_CUDA_TRY(cudaDriverGetVersion(&driver_version));
+-      return driver_version >= RMM_MIN_HWDECOMPRESS_CUDA_DRIVER_VERSION;
++      return driver_version >= RMM_MIN_HWDECOMPRESS_CUDA_VERSION;
+     }();
+     return is_supported;
+-#else
+-    return false;
+-#endif
+   }
+ };
+ #ifdef __CUDACC__
+diff --git a/cpp/include/rmm/mr/cuda_async_memory_resource.hpp b/cpp/include/rmm/mr/cuda_async_memory_resource.hpp
+index aa98f8b..4ed0f77 100644
+--- a/cpp/include/rmm/mr/cuda_async_memory_resource.hpp
++++ b/cpp/include/rmm/mr/cuda_async_memory_resource.hpp
+@@ -56,22 +56,6 @@ class RMM_EXPORT cuda_async_memory_resource final
+     fabric = 0x8  ///< Allows a fabric handle to be used for exporting. (cudaMemFabricHandle_t)
+   };
+ 
+-  /**
+-   * @brief Flags for specifying memory pool usage.
+-   *
+-   * @note These values are exact copies from the runtime API. See the
+-   * `cudaMemPoolProps` docs at
+-   * https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaMemPoolProps.html
+-   * and ensure the enum values are kept in sync with the CUDA documentation.
+-   * `cudaMemPoolCreateUsageHwDecompress` is currently the only supported usage
+-   * flag, introduced in CUDA 12.8 and documented in
+-   * https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html
+-   */
+-  enum class mempool_usage : unsigned short {
+-    hw_decompress = 0x2,  ///< If set indicates that the memory can be used as a buffer for hardware
+-                          ///< accelerated decompression.
+-  };
+-
+   /**
+    * @brief Enables the `cuda::mr::device_accessible` property
+    */
+diff --git a/cpp/src/mr/detail/cuda_async_memory_resource_impl.cpp b/cpp/src/mr/detail/cuda_async_memory_resource_impl.cpp
+index c1ad542..97caebc 100644
+--- a/cpp/src/mr/detail/cuda_async_memory_resource_impl.cpp
++++ b/cpp/src/mr/detail/cuda_async_memory_resource_impl.cpp
+@@ -13,6 +13,8 @@
+ 
+ #include <cuda_runtime_api.h>
+ 
++#include <driver_types.h>
++
+ #include <cstddef>
+ #include <cstdint>
+ 
+@@ -36,8 +38,10 @@ cuda_async_memory_resource_impl::cuda_async_memory_resource_impl(
+   pool_props.handleTypes =
+     static_cast<cudaMemAllocationHandleType>(export_handle_type.value_or(cudaMemHandleTypeNone));
+ 
+-#if defined(CUDA_VERSION) && CUDA_VERSION >= RMM_MIN_HWDECOMPRESS_CUDA_DRIVER_VERSION
+-  if (enable_hw_decompress) { pool_props.usage = 0x2; }
++#if CUDART_VERSION >= RMM_MIN_HWDECOMPRESS_CUDA_VERSION
++  // usage field in the cudaMemPoolProps only exists in new enough versions of the runtime
++  // headers.
++  if (enable_hw_decompress) { pool_props.usage = cudaMemPoolCreateUsageHwDecompress; }
+ #else
+   (void)enable_hw_decompress;
+ #endif
+diff --git a/cpp/tests/mr/hwdecompress_tests.cpp b/cpp/tests/mr/hwdecompress_tests.cpp
+index 9853df1..eb58f18 100644
+--- a/cpp/tests/mr/hwdecompress_tests.cpp
++++ b/cpp/tests/mr/hwdecompress_tests.cpp
+@@ -1,5 +1,5 @@
+ /*
+- * SPDX-FileCopyrightText: Copyright (c) 2025, NVIDIA CORPORATION.
++ * SPDX-FileCopyrightText: Copyright (c) 2025-2026, NVIDIA CORPORATION.
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+@@ -20,7 +20,7 @@ class HWDecompressTest : public ::testing::Test {
+  protected:
+   static void check_decompress_capable(void* ptr)
+   {
+-#if defined(CUDA_VERSION) && CUDA_VERSION >= RMM_MIN_HWDECOMPRESS_CUDA_DRIVER_VERSION
++#if CUDA_VERSION >= RMM_MIN_HWDECOMPRESS_CUDA_VERSION
+     if (rmm::detail::hwdecompress::is_supported()) {
+       bool is_capable{};
+       auto err =

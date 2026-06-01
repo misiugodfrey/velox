@@ -100,6 +100,9 @@ block(SCOPE_FOR VARIABLES)
     rmm
     URL ${VELOX_rmm_SOURCE_URL}
     URL_HASH ${VELOX_rmm_BUILD_SHA256_CHECKSUM}
+    # Apply rapidsai/rmm#2423 (hardware-decompression version-gating fix) on top
+    # of the pinned 26.06 commit. See cudf/rmm-2423.patch.
+    PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/cudf/rmm-2423.patch
     SOURCE_SUBDIR
     cpp
     UPDATE_DISCONNECTED 1
