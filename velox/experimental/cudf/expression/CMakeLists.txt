@@ -22,7 +22,10 @@ add_library(
   ExpressionEvaluator.cpp
   JitExpression.cpp
   PrestoFunctions.cpp
+  prestosql/DatePlusIntervalFunction.cpp
   SparkFunctions.cpp
+  sparksql/DateAddFunction.cpp
+  sparksql/HashFunction.cpp
   SubfieldFiltersToAst.cpp
 )
 

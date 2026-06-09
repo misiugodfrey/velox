@@ -26,6 +26,7 @@
 #include "velox/exec/tests/utils/AssertQueryBuilder.h"
 #include "velox/exec/tests/utils/OperatorTestBase.h"
 #include "velox/exec/tests/utils/PlanBuilder.h"
+#include "velox/functions/prestosql/ArrayConstructor.h"
 #include "velox/functions/sparksql/registration/Register.h"
 #include "velox/parse/TypeResolver.h"
 
@@ -40,6 +41,7 @@ class CudfFilterProjectTest : public CudfFunctionBaseTest {
   static void SetUpTestCase() {
     parse::registerTypeResolver();
     functions::sparksql::registerFunctions("");
+    functions::registerArrayConstructor("array_constructor");
     memory::MemoryManager::testingSetInstance(memory::MemoryManager::Options{});
     cudf_velox::registerCudf();
     cudf_velox::registerSparkFunctions("");
@@ -1198,6 +1200,5 @@ TEST_F(CudfFilterProjectTest, unaryMathFunctions) {
   // Absolute value
   testUnaryFunction("abs(c0)", -5.5, 5.5);
 }
-
 } // namespace
 } // namespace facebook::velox::cudf_velox

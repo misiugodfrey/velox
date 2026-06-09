@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#include "velox/expression/Expr.h"
+#include "velox/common/memory/CustomMemoryResourceRegistry.h"
 
-namespace facebook::velox::cudf_velox {
+namespace facebook::velox::memory {
 
-/// Returns true if \p expr or any of its inputs is of decimal type. When \p
-/// deep is true the entire subtree is inspected; when false only \p expr and
-/// its immediate inputs are checked.
-bool containsDecimalType(
-    const std::shared_ptr<velox::exec::Expr>& expr,
-    const bool deep);
+// static
+CustomMemoryResourceRegistry::Registry& CustomMemoryResourceRegistry::global() {
+  static Registry instance;
+  return instance;
+}
 
-} // namespace facebook::velox::cudf_velox
+// static
+std::shared_ptr<CustomMemoryResourceRegistry::Registry>
+CustomMemoryResourceRegistry::createRegistry(Registry* parent) {
+  return std::make_shared<Registry>(parent);
+}
+
+} // namespace facebook::velox::memory
