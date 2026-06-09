@@ -18,7 +18,6 @@ add_library(
   AstExpression.cpp
   CommonFunctions.cpp
   DecimalExpressionKernels.cpp
-  DecimalExpressionKernelsGpu.cu
   DecimalTypeCheck.cpp
   ExpressionEvaluator.cpp
   JitExpression.cpp

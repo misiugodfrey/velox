@@ -97,6 +97,12 @@ velox_add_cudf_test(
 )
 
 velox_add_cudf_test(
+  NAME velox_cudf_decimal_divide_gpu_portable_test
+  SOURCES Main.cpp DecimalDivideGpuPortableTest.cpp
+  LIBS ${CUDF_TEST_DEFAULT_LIBS} velox_functions_test_lib
+)
+
+velox_add_cudf_test(
   NAME velox_cudf_enforce_single_row_test
   SOURCES Main.cpp EnforceSingleRowTest.cpp
   LIBS ${CUDF_TEST_DEFAULT_LIBS}
