@@ -223,4 +223,19 @@ void orderCudfVectorDeallocationsAfterStream(
   }
 }
 
+std::string getBaseFunctionName(const std::string& fullName) {
+  auto pos = fullName.rfind('.');
+  return pos == std::string::npos ? fullName : fullName.substr(pos + 1);
+}
+
+std::string stripFunctionPrefix(
+    const std::string& name,
+    const std::string& prefix) {
+  auto base = getBaseFunctionName(name);
+  if (!prefix.empty() && base.find(prefix) == 0) {
+    return base.substr(prefix.size());
+  }
+  return base;
+}
+
 } // namespace facebook::velox::cudf_velox

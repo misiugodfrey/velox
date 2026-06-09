@@ -34,6 +34,7 @@ add_library(
   CudfReduce.cpp
   CudfTopN.cpp
   CudfTopNRowNumber.cpp
+  CudfWindow.cpp
   DebugUtil.cpp
   DecimalAggregationHostOps.cpp
   DecimalAggregationState.cpp
