@@ -22,6 +22,11 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(GPU_PORTABLE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(GPU_PORTABLE_BIN ${CMAKE_CURRENT_BINARY_DIR})
+# Use a path relative to this file so the SOURCE lookups work both in a
+# standalone velox build and when velox is embedded as a subdirectory
+# (e.g. inside presto-native-execution), where CMAKE_SOURCE_DIR points to
+# the outer project root rather than the velox source root.
+set(VELOX_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..)
 set(GPU_PORTABLE_VENV ${GPU_PORTABLE_BIN}/venv)
 set(GPU_PORTABLE_PY ${GPU_PORTABLE_VENV}/bin/python3)
 set(GPU_PORTABLE_REQS ${GPU_PORTABLE_DIR}/requirements.txt)
@@ -298,7 +303,7 @@ endfunction()
 
 velox_add_gpu_portable(
   OUTPUT           Round.h
-  SOURCE           ${CMAKE_SOURCE_DIR}/velox/functions/prestosql/ArithmeticImpl.h
+  SOURCE           ${VELOX_SRC_DIR}/functions/prestosql/ArithmeticImpl.h
   FUNC             round
   WRAPPER_NAME     velox_round_double
   TEMPLATE_TYPES   TNum=double TDecimals=int
@@ -327,7 +332,7 @@ function(velox_add_decimal_divide variant in_int out_int in_dec out_dec)
   velox_add_gpu_portable(
     OUTPUT           DecimalDivide_${variant}.h
     FRAGMENT_GROUP   decimal_divide
-    SOURCE           ${CMAKE_SOURCE_DIR}/velox/type/DecimalUtil.h
+    SOURCE           ${VELOX_SRC_DIR}/type/DecimalUtil.h
     FUNC             divideWithRoundUp
     WRAPPER_NAME     velox_decimal_divide_${variant}
     TEMPLATE_TYPES   R=${out_int} A=${in_int} B=${in_int}
