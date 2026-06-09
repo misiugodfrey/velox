@@ -11,23 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Build cuDF's CUDA sources at the same C++ standard as the rest of the project.
-set(CMAKE_CUDA_STANDARD ${CMAKE_CXX_STANDARD})
-set(CMAKE_CUDA_STANDARD_REQUIRED ${CMAKE_CXX_STANDARD_REQUIRED})
-
-add_subdirectory(gpu_portable)
-add_subdirectory(connectors)
-add_subdirectory(exec)
-add_subdirectory(expression)
-add_subdirectory(vector)
-
-if(VELOX_BUILD_TESTING)
-  add_subdirectory(tests)
-elseif(VELOX_BUILD_TEST_UTILS)
-  add_subdirectory(tests/utils)
-endif()
-
-if(VELOX_ENABLE_BENCHMARKS)
-  add_subdirectory(benchmarks)
-endif()
+# Pinned Python deps for the GPU-portable extractor.
+# Consumed by velox/experimental/cudf/gpu_portable/CMakeLists.txt, which
+# provisions a venv under the build tree and installs this file into it.
+# Bump versions intentionally; the CMake build reprovisions when this file
+# changes.
+tree-sitter==0.23.2
+tree-sitter-cpp==0.23.4

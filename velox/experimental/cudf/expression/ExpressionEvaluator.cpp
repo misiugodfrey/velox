@@ -18,6 +18,7 @@
 #include "velox/experimental/cudf/expression/AstUtils.h"
 #include "velox/experimental/cudf/expression/DecimalExpressionKernels.h"
 #include "velox/experimental/cudf/expression/ExpressionEvaluator.h"
+#include "velox/experimental/cudf/gpu_portable/Round.h"
 
 #include "velox/common/base/Exceptions.h"
 #include "velox/expression/ConstantExpr.h"
@@ -597,62 +598,14 @@ class RoundFunction : public CudfFunction {
     auto inputTypeId = inputCol.type().id();
 
     if (inputTypeId == cudf::type_id::FLOAT64) {
-      // JIT-compile a CUDA UDF that mirrors the Velox CPU round implementation
-      // (see velox/functions/prestosql/ArithmeticImpl.h). This makes
-      // Velox-cuDF produce bit-identical results to the Velox CPU path for
-      // round(double, scale) (e.g. round(2.675, 2) == 2.68) by relying on the
-      // same `round(x * factor) / factor` trick.
-      static constexpr char const* kUdf = R"***(
-__device__ void velox_round_double(
-    double* out, double number, int decimals, double factor) {
-  if (!isfinite(number)) { *out = number; return; }
-  if (decimals == 0) { *out = round(number); return; }
-  if (decimals < 0) {
-    *out = round(number * factor) / factor;
-    return;
-  }
-  const double truncated = trunc(number);
-  const double fraction = number - truncated;
-  if (fraction == 0.0) { *out = number; return; }
-  // Threshold matches Velox CPU: for small magnitudes the factor-multiply
-  // path has less precision loss than the truncate + fraction path.
-  if (fabs(number) < 17592186044415.0) {
-    *out = round(number * factor) / factor;
-    return;
-  }
-  const double roundedFractions = round(fraction * factor) / factor;
-  *out = truncated + roundedFractions;
-}
-)***";
-
-      // The scale-derived `decimals` and `factor` values are constants for
-      // the lifetime of this RoundFunction. Build them on the device once
-      // (lazily, on the first eval's stream/mr) and reuse the same
-      // numeric_scalars across batches. Each eval then only constructs two
-      // non-owning column_views over those scalars' device storage and wraps
-      // them in scalar_column_view -- no per-batch device allocations.
-      ensureScalarsBuilt(stream, mr);
-      const cudf::column_view decimalsView{
-          cudf::data_type{cudf::type_id::INT32},
-          /*size=*/1,
-          decimalsScalar_->data(),
-          /*null_mask=*/nullptr,
-          /*null_count=*/0};
-      const cudf::column_view factorView{
-          cudf::data_type{cudf::type_id::FLOAT64},
-          1,
-          factorScalar_->data(),
-          nullptr,
-          0};
-
-      const cudf::transform_input transformInputs[] = {
-          inputCol,
-          cudf::scalar_column_view(decimalsView),
-          cudf::scalar_column_view(factorView),
-      };
+      // For double inputs, we dispatch to a GPU-portable mirror of Velox's
+      // CPU round implementation so that Velox-cuDF matches CPU semantics
+      // bit-for-bit (e.g. `round(2.675, 2) == 2.68`). See the comment at the
+      // top of `gpu_portable/Round.h` for the parity contract.
+      const cudf::transform_input transformInputs[] = {inputCol};
       return cudf::transform_extended(
           transformInputs,
-          kUdf,
+          gpu_portable::velox_round_double_source(scale_),
           cudf::data_type{cudf::type_id::FLOAT64},
           cudf::udf_source_type::CUDA,
           std::nullopt,
