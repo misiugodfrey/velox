@@ -603,19 +603,6 @@ velox_resolve_dependency(glog)
 velox_set_source(fmt)
 velox_resolve_dependency(fmt 9.0.0)
 
-# When velox is embedded as a subdirectory (e.g. in presto-native-execution),
-# cudf's rapids_logger will later try to promote fmt::fmt to global scope from
-# its own subdirectory, which CMake >= 3.21 forbids. Promote the targets here
-# from the owning directory so the later rapids_logger call is a no-op.
-foreach(_fmt_target fmt::fmt fmt::fmt-header-only)
-  if(TARGET ${_fmt_target})
-    get_target_property(_fmt_is_global ${_fmt_target} IMPORTED_GLOBAL)
-    if(NOT _fmt_is_global)
-      set_target_properties(${_fmt_target} PROPERTIES IMPORTED_GLOBAL TRUE)
-    endif()
-  endif()
-endforeach()
-
 if(VELOX_ENABLE_COMPRESSION_LZ4)
   find_package(lz4 REQUIRED)
 endif()
